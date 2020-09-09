@@ -30,7 +30,7 @@ class MinimalSubscriber(Node):
 
         # self.transport_srv = self.create_client(ResourceMove, 'transport_service')
         # self.req = ResourceMove.Request() #This sets up variable
-        
+        #COMMENT HERE        
         #Action client declaration
         self._action_client = ActionClient(self, Transport, 'transport_request')
 
