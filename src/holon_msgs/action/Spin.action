@@ -1,0 +1,6 @@
+int32 entry
+int32 product_ID
+---
+bool completion
+---
+int32 progress
