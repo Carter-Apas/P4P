@@ -11,14 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 
 import rclpy
-import time
 from rclpy.node import Node
 from rclpy.action import ActionServer
+from rclpy.action import ActionClient 
 from std_msgs.msg import String
-from holon_msgs.msg import AdjacencyList
+from holon_msgs.msg import AdjacencyList 
+
 from holon_msgs.action import Transport 
+from holon_msgs.action import Spin 
+
 
 
 class MinimalPublisher(Node):
@@ -29,52 +33,76 @@ class MinimalPublisher(Node):
         timer_period = 1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
-        #Action server declaration
-        self._action_server = ActionServer(self,Transport,'transport_request',self.transport_callback,goal_callback=self.goal_parse_msg)
+        self._action_server = ActionServer(self, Spin ,'spin_request', self.spin_execute_callback)
 
         self.graph = AdjacencyList()
         self.graph.node = 2
         self.graph.adjacent = [1,3]
+        self.trays = [1,0,0,0,0,1]
+        self.spinning = 0 
 
     def timer_callback(self):
         self.publisher_.publish(self.graph)
         #self.get_logger().info('Publishing: "%x" and "%x"' % (self.graph.node self.graph.adjacent))
 
+     
     #--------- Action Server Functions Start---------------------
 
     def goal_parse_msg(self,goal_request):
-        print(goal_request)  
-        if (goal_request.a == 2 and goal_request.b == 2):
-            print("Accepting Goal")
-            return rclpy.action.GoalResponse(2)
-        else:
-            print("Declined Goal")
-            return rclpy.action.GoalResponse(1)
 
-    def transport_callback(self, goal_handle):
-        result = Transport.Result()
-        print(goal_handle.request.a)
-        nodea = goal_handle.request.a
-        nodeb = goal_handle.request.b
-        print(nodea)
-        if nodea == 2 and nodeb == 2: 
-            print("two two baby")
-            self.get_logger().info('Transporting Within Node 2...')
-            feedback_msg = Transport.Feedback()
-            feedback_msg.percent = 0
-            for i in range(1, 100):
-                feedback_msg.percent = i
-                goal_handle.publish_feedback(feedback_msg)
-                time.sleep(.1)
-            goal_handle.succeed()
-            result.completion = True
-            return result
-        else:
-            print("get aborted")
-            goal_handle.abort()
-            result.completion = False
-            return result 
-    
+        self.get_logger().info('Received Spin request')
+        return rclpy.action.GoalResponse(2)
+
+
+    def spin_execute_callback(self, goal_handle):
+
+        result = Spin.Result()
+        print('Received request to spin')
+        entry_spot = goal_handle.request.entry
+        print(entry_spot)
+        while self.spinning == 1:
+            time.sleep(0.5)
+            print("Im in the loop")
+        new_tray = entry_spot
+        num_of_spins = 0
+        while self.trays[new_tray] != 0:
+            if new_tray == 0:
+                new_tray = (len(self.trays)-1)
+            else:
+                new_tray = new_tray - 1
+            num_of_spins = num_of_spins + 1
+        feedback_msg = Spin.Feedback()
+        feedback_msg.progress = 0
+        self.spinning == 1
+        print(num_of_spins)
+        print("I am here now")
+        if num_of_spins >= 1:
+            print("Im doing a spin")
+            for i in range(1,(num_of_spins)+1):
+                self.get_logger().info('completing one spin')
+                old_right = self.trays[len(self.trays)-1]
+                for j in range(len(self.trays)-1, 0, -1):
+                    print(j)
+                    print("Im in the for loop")
+                    self.trays[j] = self.trays[j-1]
+                    print(self.trays)
+                self.trays[0]= old_right
+                for k in range(1,100):
+                    feedback_msg.progress = k
+                    self.get_logger().info('Feedback: Spinning')
+                    goal_handle.publish_feedback(feedback_msg)
+                print(self.trays)
+        self.trays[entry_spot] = 1
+        #feedback_msg.progress = 'Completing Spin %d of %d' % (i, num_of_spins)  
+        feedback_msg.progress = 777
+        print(feedback_msg.progress)
+        self.get_logger().info('Feedback: Finished Spinning')
+        goal_handle.publish_feedback(feedback_msg)
+        goal_handle.succeed()
+        result.completion = True
+        print(result)
+        return result
+
     #----------Action Server Functions End------------------------
 
 def main(args=None):

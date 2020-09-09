@@ -1,7 +1,7 @@
 int8 a
 int8 b
+int32 id
 ---
-int8 completion
+int8 result
 ---
-int8 node
-int8 percent
+int32 percent

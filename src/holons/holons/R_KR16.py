@@ -16,9 +16,12 @@ import rclpy
 import time
 from rclpy.node import Node
 from rclpy.action import ActionServer
+from rclpy.action import ActionClient
 from std_msgs.msg import String
 from holon_msgs.msg import AdjacencyList
+
 from holon_msgs.action import Transport 
+from holon_msgs.action import Spin
 
 class MinimalPublisher(Node):
 
@@ -29,11 +32,13 @@ class MinimalPublisher(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
         #Action server declaration
-        self._action_server = ActionServer(self,Transport,'transport_request',self.transport_callback,goal_callback=self.goal_parse_msg)
+        self._action_server = ActionServer(self,Transport,'transport_request',self.transport_callback)
+        self._action_client = ActionClient(self, Spin, 'spin_request')
 
         self.graph = AdjacencyList()
         self.graph.node = 1
         self.graph.adjacent = [0,2]
+        self.conveyor_spinning = 0
 
     def timer_callback(self):
         self.publisher_.publish(self.graph)
@@ -49,14 +54,17 @@ class MinimalPublisher(Node):
         else:
             self.get_logger().info('Declined Goal')
             return rclpy.action.GoalResponse(1)
-            
+
+
     def transport_callback(self, goal_handle):
 
         result = Transport.Result()
         print(goal_handle.request.a)
         nodea = goal_handle.request.a
         nodeb = goal_handle.request.b
+        product_ID = goal_handle.request.product_name
         print(nodeb)
+
         if nodea == 0 and nodeb == 1: 
             self.get_logger().info('Transporting to Node 1...')
             feedback_msg = Transport.Feedback()
@@ -66,23 +74,48 @@ class MinimalPublisher(Node):
                 goal_handle.publish_feedback(feedback_msg)
                 time.sleep(.05)
             goal_handle.succeed()
-            result.completion = True
+            result.result = True
             return result
         if nodea == 1 and nodeb == 2: 
             self.get_logger().info('Transporting to Node 2...')
             feedback_msg = Transport.Feedback()
             feedback_msg.percent = 0
+            self.conveyor_spinning = 1
+            self.send_spin_request(0, )
+            while self.conveyor_spinning != 0:
+                time.sleep(0.5)
+                rclpy.spin_once(self)
             for i in range(1, 100):
                 feedback_msg.percent = i
                 goal_handle.publish_feedback(feedback_msg)
                 time.sleep(.05)
             goal_handle.succeed()
-            result.completion = True
+            result.result = True
             return result
         else:
             goal_handle.abort()
             result.completion = False
             return result 
+
+    def send_spin_request(self, entry, product_ID):
+
+        goal_msg = Spin.Goal()
+        goal_msg.entry = entry
+        goal_msg.product_ID = product_ID
+
+        self.get_logger().info('Sending Spin Request')
+        self._action_client.wait_for_server()
+
+        self._send_goal_future = self._action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
+
+    def feedback_callback(self, feedback_msg):
+
+        feedback = feedback_msg.feedback
+        print(feedback)
+        self.get_logger().info('Received feedback: {0}'.format(feedback.progress))
+        if feedback.progress == 777:
+            print("I got to here")
+            self.conveyor_spinning = 0
 
     
     #----------Action Server Functions End------------------------

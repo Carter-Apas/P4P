@@ -30,7 +30,7 @@ class MinimalSubscriber(Node):
 
         # self.transport_srv = self.create_client(ResourceMove, 'transport_service')
         # self.req = ResourceMove.Request() #This sets up variable
-        #COMMENT HERE        
+        
         #Action client declaration
         self._action_client = ActionClient(self, Transport, 'transport_request')
 
@@ -42,6 +42,7 @@ class MinimalSubscriber(Node):
         #Useful global variables
         self.currentNode = int(sys.argv[1])
         self.endingNode = int(sys.argv[2])
+        self.product_ID = int(sys.argv[3])
         self.goalNode = 99
         self.path = []
         self.flag = False
@@ -51,13 +52,14 @@ class MinimalSubscriber(Node):
         while(1): 
             rclpy.spin_once(self)
             if self.findPath and not self.currently_moving: 
-                #print("You may find a path") 
+                print("You may find a path") 
                 self.fix_graph()
-                #print(self.graph)
+                print(self.graph)
                 self.path = self.findShortestPath(self.currentNode,self.endingNode)
+                print(self.path)
                 try:
                     self.goalNode = self.path[1]
-                    self.send_transport_request(self.currentNode,self.goalNode)
+                    self.send_transport_request(self.currentNode,self.goalNode,self.product_ID)
                     self.currently_moving = True
                 except:
                     self.currently_moving = 0
@@ -73,14 +75,18 @@ class MinimalSubscriber(Node):
                 
     #--------------------------Action based functions------------------  
     # Initial Request         
-    def send_transport_request(self, a, b):
+    def send_transport_request(self, a, b, product_ID):
         goal_msg = Transport.Goal()
         goal_msg.a = a
         goal_msg.b = b
+        goal_msg.product_ID = product_ID
+
         self.get_logger().info('Sending Transport Request for: %d , %d' % (goal_msg.a, goal_msg.b))
         self._action_client.wait_for_server()
         self._send_goal_future = self._action_client.send_goal_async(goal_msg,feedback_callback=self.transport_callback)
         #self._send_goal_future.add_done_callback(self.transport_response_callback)
+
+
 
     #Feedback Response
     def transport_callback(self, feedback_msg):
@@ -105,8 +111,9 @@ class MinimalSubscriber(Node):
     #     self.get_logger().info('Result: {0}'.format(result.completion))
         
 
-    #--------------------------Action based functions end------------------   
+    #------------------------- Action based functions end -----------------   
 
+    #------------------------- Path based functions start ------------------
     def fix_graph(self):
         #Function ensures that all nodes are fully connected. Removes hanging nodes.
         tempNodes = []
@@ -193,7 +200,7 @@ class MinimalSubscriber(Node):
             self.findPath = False
         
 
-
+#------------------------- Path based functions end ------------------
 
 def main(args=None):
     rclpy.init(args=args)
