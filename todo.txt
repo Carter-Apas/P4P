@@ -1,0 +1,6 @@
+Idea: don't use the arms as a node as there purpose it to only transport. They can be hidden within the graph node network.
+
+voltage divider for output of the kuka and everything else.
+Voltage divider = 5/24 = .20 = z2/z1+z2 find some resistors
+
+make good raspberry pi holder
