@@ -62,8 +62,9 @@ class MinimalPublisher(Node):
         print(goal_handle.request.a)
         nodea = goal_handle.request.a
         nodeb = goal_handle.request.b
-        product_ID = goal_handle.request.product_name
+        product_id = goal_handle.request.product_id
         print(nodeb)
+        print(product_id)
 
         if nodea == 0 and nodeb == 1: 
             self.get_logger().info('Transporting to Node 1...')
@@ -81,7 +82,7 @@ class MinimalPublisher(Node):
             feedback_msg = Transport.Feedback()
             feedback_msg.percent = 0
             self.conveyor_spinning = 1
-            self.send_spin_request(0, )
+            self.send_spin_request(0, product_id)
             while self.conveyor_spinning != 0:
                 time.sleep(0.5)
                 rclpy.spin_once(self)
@@ -97,11 +98,11 @@ class MinimalPublisher(Node):
             result.completion = False
             return result 
 
-    def send_spin_request(self, entry, product_ID):
+    def send_spin_request(self, entry, product_id):
 
         goal_msg = Spin.Goal()
         goal_msg.entry = entry
-        goal_msg.product_ID = product_ID
+        goal_msg.product_id = product_id
 
         self.get_logger().info('Sending Spin Request')
         self._action_client.wait_for_server()

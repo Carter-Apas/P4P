@@ -56,6 +56,7 @@ class MinimalPublisher(Node):
 
     def spin_execute_callback(self, goal_handle):
 
+        product_id = goal_handle.request.product_id
         result = Spin.Result()
         print('Received request to spin')
         entry_spot = goal_handle.request.entry
@@ -92,14 +93,15 @@ class MinimalPublisher(Node):
                     self.get_logger().info('Feedback: Spinning')
                     goal_handle.publish_feedback(feedback_msg)
                 print(self.trays)
-        self.trays[entry_spot] = 1
+        self.trays[entry_spot] = product_id
+        print(self.trays)
         #feedback_msg.progress = 'Completing Spin %d of %d' % (i, num_of_spins)  
         feedback_msg.progress = 777
         print(feedback_msg.progress)
         self.get_logger().info('Feedback: Finished Spinning')
         goal_handle.publish_feedback(feedback_msg)
         goal_handle.succeed()
-        result.completion = True
+        result.resultant = True
         print(result)
         return result
 
