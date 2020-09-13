@@ -31,9 +31,7 @@ setup(
         	'R_CircConveyor = holons.R_CircConveyor:main',
         	'R_CNC = holons.R_CNC:main',
         	'R_BasketA = holons.R_BasketA:main',
-        	'R_BasketB = holons.R_BasketB:main',
-            'fibonacci_action_client = holons.fibonacci_action_client:main',
-            'fibonacci_action_server = holons.fibonacci_action_server:main',
+        	'R_BasketB = holons.R_BasketB:main'
         ],
     },
     
