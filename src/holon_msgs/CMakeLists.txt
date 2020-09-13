@@ -38,6 +38,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/AdjacencyList.msg"
   "srv/ResourceMove.srv"
   "action/Transport.action"
+  "action/Spin.action"
  )
 
 ament_package()
