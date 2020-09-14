@@ -94,20 +94,21 @@ class MinimalPublisher(Node):
             self.linear_conveyor_spinning = 1
             while 1:
                 if kuka_state == 0: 
-                    if linear_conveyor_spinning == 0:
+                    if self.linear_conveyor_spinning == 0:
                         kuka_state = 1
-                else if  kuka_state == 1:
-                    GPIO.output(self.pin_start, 1) # Start arm
-
-                (self.linear_conveyor_spinning == 0 and inputflag == 0):
-                    GPIO.output(self.pin_start, 1)
-                else if gpio input 2 and inputflag == 0:
-                    #inputflag = 1
-                    #feedback_msg.percent = 50\
-                    #goal_handle.publish_feedback(feedback_msg)
-                #if gpio input 3:
-                    #feedback_msg.percent = 99
-                #break
+                elif kuka_state == 1:
+                    GPIO.output(self.pin_start_01, 1) # Start arm movement for 01
+                    kuka_state = 2
+                elif kuka_state == 2:
+                    if GPIO.input(self.pin_progress == True):
+                        kuka_state = 3
+                        feedback_msg.percent = 50
+                        goal_handle.publish_feedback(feedback_msg)
+                elif kuka_state == 3:
+                    if GPIO.input(self.pin_finished == True):
+                        feedback_msg.percent = 99
+                        goal_handle.publish_feedback(feedback_msg)
+                        break
                 time.sleep(.05)
             goal_handle.succeed()
             result.result = True
@@ -115,21 +116,30 @@ class MinimalPublisher(Node):
         if nodea == 1 and nodeb == 2: 
             self.get_logger().info('Transporting to Node 2...')
             feedback_msg = Transport.Feedback()
-            inputflag = 0
             feedback_msg.percent = 0
+            kuka_state = 0
             self.conveyor_spinning = 1
             self.send_spin_request(0, product_id)
             while self.conveyor_spinning != 0:
                 time.sleep(0.5)
                 rclpy.spin_once(self)
             while 1:
-                #if gpio input 2 and inputflag ==  0:
-                    # inputflag = 1
-                    #feedback_msg.percent = 50\
-                    #goal_handle.publish_feedback(feedback_msg)
-                #if gpio input 3:
-                    #feedback_msg.percent = 99
-                    #break
+                if kuka_state == 0: 
+                    if self.linear_conveyor_spinning == 0:
+                        kuka_state = 1
+                elif kuka_state == 1:
+                    GPIO.output(self.pin_start_12, 1) # Start arm movement for 02
+                    kuka_state = 2
+                elif kuka_state == 2:
+                    if GPIO.input(self.pin_progress == True):
+                        kuka_state = 3
+                        feedback_msg.percent = 50
+                        goal_handle.publish_feedback(feedback_msg)
+                elif kuka_state == 3:
+                    if GPIO.input(self.pin_finished == True):
+                        feedback_msg.percent = 99
+                        goal_handle.publish_feedback(feedback_msg)
+                        break
                 time.sleep(.05)
             goal_handle.succeed()
             result.result = True
