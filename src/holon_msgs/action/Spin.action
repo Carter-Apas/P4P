@@ -1,6 +1,12 @@
 int32 entry
+<<<<<<< HEAD
 int32 product_ID
 ---
 bool completion
+=======
+int32 product_id
+---
+int32 resultant
+>>>>>>> b6fc61a642f7bf0feed9db1d582591c75b080e5d
 ---
 int32 progress

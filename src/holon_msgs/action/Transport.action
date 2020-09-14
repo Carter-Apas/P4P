@@ -1,6 +1,6 @@
 int8 a
 int8 b
-int32 id
+int32 product_id
 ---
 int8 result
 ---

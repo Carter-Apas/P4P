@@ -42,7 +42,7 @@ class MinimalSubscriber(Node):
         #Useful global variables
         self.currentNode = int(sys.argv[1])
         self.endingNode = int(sys.argv[2])
-        self.product_ID = int(sys.argv[3])
+        self.product_id = int(sys.argv[3])
         self.goalNode = 99
         self.path = []
         self.flag = False
@@ -59,7 +59,7 @@ class MinimalSubscriber(Node):
                 print(self.path)
                 try:
                     self.goalNode = self.path[1]
-                    self.send_transport_request(self.currentNode,self.goalNode,self.product_ID)
+                    self.send_transport_request(self.currentNode,self.goalNode,self.product_id)
                     self.currently_moving = True
                 except:
                     self.currently_moving = 0
@@ -74,14 +74,15 @@ class MinimalSubscriber(Node):
                
                 
     #--------------------------Action based functions------------------  
+   
     # Initial Request         
-    def send_transport_request(self, a, b, product_ID):
+    def send_transport_request(self, a, b, product_id):
         goal_msg = Transport.Goal()
         goal_msg.a = a
         goal_msg.b = b
-        goal_msg.product_ID = product_ID
+        goal_msg.product_id = product_id
 
-        self.get_logger().info('Sending Transport Request for: %d , %d' % (goal_msg.a, goal_msg.b))
+        self.get_logger().info('Sending Transport Request for %d from node %d to node %d' % (goal_msg.product_id, goal_msg.a, goal_msg.b))
         self._action_client.wait_for_server()
         self._send_goal_future = self._action_client.send_goal_async(goal_msg,feedback_callback=self.transport_callback)
         #self._send_goal_future.add_done_callback(self.transport_response_callback)
@@ -94,22 +95,7 @@ class MinimalSubscriber(Node):
         self.get_logger().info('Received feedback: {0}'.format(feedback.percent))
         if feedback.percent == 99:
             self.accepted_by_something = 1
-    #Goal Reponse
-    # def transport_response_callback(self, future):
-    #     goal_handle = future.result()
-    #     if not goal_handle.accepted:
-    #         self.get_logger().info('Goal rejected :(')
-    #         return
-    #     self.get_logger().info('Goal accepted :)')
-
-    #     self._get_result_future = goal_handle.get_result_async()
-
-    #     self._get_result_future.add_done_callback(self.get_result_callback)
-    #Result Response
-    # def get_result_callback(self, future):
-    #     result = future.result().result
-    #     self.get_logger().info('Result: {0}'.format(result.completion))
-        
+    
 
     #------------------------- Action based functions end -----------------   
 
