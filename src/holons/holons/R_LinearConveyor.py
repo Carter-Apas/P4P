@@ -45,13 +45,13 @@ class MinimalPublisher(Node):
         #--------GPIO pin setup end-------------
 
         self.pos = 0
-        self.length_of_movement = .5
+        self.length_of_movement = 1.2
         self._action_server = ActionServer(self,SpinLinear,'SpinLinear_Request',self.SpinLinear_callback)
 
         print("Ensure the conveyor is wired to the controller")
         time.sleep(1)
         print("init.....")
-        for i in range(100):
+        for i in range(10):
             GPIO.output(self.pin_MOVEDOWN, GPIO.HIGH)
             time.sleep(self.length_of_movement)
         GPIO.output(self.pin_MOVEDOWN, GPIO.LOW)  

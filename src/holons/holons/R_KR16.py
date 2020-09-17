@@ -34,22 +34,24 @@ class MinimalPublisher(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
         #Action server declaration
-        self._action_server = ActionServer(self,Transport,'transport_request',self.transport_callback)
+        self._action_server = ActionServer(self,Transport,'transport_request',self.transport_callback,goal_callback=self.goal_parse_msg)
         self._action_client = ActionClient(self, Spin, 'spin_request')
         self._action_SpinLinear_client = ActionClient(self, SpinLinear, 'SpinLinear_Request')
 
         self.graph = AdjacencyList()
         self.graph.node = 1
         self.graph.adjacent = [0,2]
-        self.conveyor_spinning = 0
-        self.linear_conveyor_spinning = 0
+        self.conveyor_ready = 0
+        self.linear_conveyor_ready = 0
+        
+        print("init.....")
 
         #--------GPIO pin setup start-------------
         GPIO.setmode(GPIO.BOARD)
         self.pin_start_01 = 36
         self.pin_start_12 = 37
-        self.pin_progress = 38
-        self.pin_finished = 40
+        self.pin_progress = 31
+        self.pin_finished = 33
         GPIO.setup(self.pin_start_01, GPIO.OUT)
         GPIO.setup(self.pin_start_12, GPIO.OUT)
         GPIO.setup(self.pin_progress, GPIO.IN)
@@ -57,6 +59,7 @@ class MinimalPublisher(Node):
         GPIO.output(self.pin_start_01, GPIO.LOW)    
         GPIO.output(self.pin_start_12, GPIO.LOW) 
         #--------GPIO pin setup end-------------
+        print("ready")
 
     def timer_callback(self):
         self.publisher_.publish(self.graph)
@@ -75,13 +78,12 @@ class MinimalPublisher(Node):
 
     def transport_callback(self, goal_handle):
 
-        result = Transport.Result()
-        print(goal_handle.request.a)
+        
         nodea = goal_handle.request.a
         nodeb = goal_handle.request.b
         product_id = goal_handle.request.product_id
-        print(nodeb)
-        print(product_id)
+        GPIO.output(self.pin_start_01, GPIO.LOW)    
+        GPIO.output(self.pin_start_12, GPIO.LOW)
 
         if nodea == 0 and nodeb == 1: 
             self.get_logger().info('Transporting to Node 1...')
@@ -91,29 +93,37 @@ class MinimalPublisher(Node):
             
             #need to add a timout counter returning a failure should there be no input.
             self.send_SpinLinear_request(1)
-            self.linear_conveyor_spinning = 1
-            while 1:
+            self.linear_conveyor_ready = 0
+            print("where am i now")
+            while kuka_state != 4:
+                rclpy.spin_once(self,executor=None, timeout_sec=0) #either get rid of this spin or somehow fix return
                 if kuka_state == 0: 
-                    if self.linear_conveyor_spinning == 0:
+                    print("nani da cook")
+                    if self.linear_conveyor_ready == 1:
                         kuka_state = 1
                 elif kuka_state == 1:
+                    print("sure")
                     GPIO.output(self.pin_start_01, 1) # Start arm movement for 01
                     kuka_state = 2
                 elif kuka_state == 2:
-                    if GPIO.input(self.pin_progress == True):
+                    if GPIO.input(self.pin_progress):
+                        print("nani")
                         kuka_state = 3
                         feedback_msg.percent = 50
                         goal_handle.publish_feedback(feedback_msg)
                 elif kuka_state == 3:
-                    if GPIO.input(self.pin_finished == True):
-                        feedback_msg.percent = 99
-                        goal_handle.publish_feedback(feedback_msg)
-                        break
-                time.sleep(.05)
+                    if GPIO.input(self.pin_finished):
+                        print("questiion")
+                        GPIO.output(self.pin_start_01, GPIO.LOW)
+                        kuka_state = 4
+            feedback_msg.percent = 99
+            goal_handle.publish_feedback(feedback_msg)
             goal_handle.succeed()
-            result.result = True
-            return result
-        if nodea == 1 and nodeb == 2: 
+
+            result = Transport.Result()
+            result.completion = True
+            return result #this return results totally zucks it
+        elif nodea == 1 and nodeb == 2: 
             self.get_logger().info('Transporting to Node 2...')
             feedback_msg = Transport.Feedback()
             feedback_msg.percent = 0
@@ -123,31 +133,34 @@ class MinimalPublisher(Node):
             while self.conveyor_spinning != 0:
                 time.sleep(0.5)
                 rclpy.spin_once(self)
-            while 1:
+            while kuka_state != 4:
+                rclpy.spin_once(self)
                 if kuka_state == 0: 
-                    if self.linear_conveyor_spinning == 0:
+                    if self.linear_conveyor_ready == 0:
                         kuka_state = 1
                 elif kuka_state == 1:
                     GPIO.output(self.pin_start_12, 1) # Start arm movement for 02
                     kuka_state = 2
                 elif kuka_state == 2:
-                    if GPIO.input(self.pin_progress == True):
+                    if GPIO.input(self.pin_progress):
                         kuka_state = 3
                         feedback_msg.percent = 50
                         goal_handle.publish_feedback(feedback_msg)
                 elif kuka_state == 3:
-                    if GPIO.input(self.pin_finished == True):
+                    if GPIO.input(self.pin_finished):
                         feedback_msg.percent = 99
                         goal_handle.publish_feedback(feedback_msg)
-                        break
+                        kuka_state = 4 
                 time.sleep(.05)
             goal_handle.succeed()
-            result.result = True
+            result.completion = True
             return result
         else:
+            
             goal_handle.abort()
             result.completion = False
             return result 
+
     
     #----------Action Server Functions End------------------------
     #----------Action Spin Client Functions Start-----------------
@@ -203,14 +216,16 @@ class MinimalPublisher(Node):
     def get_result_callback(self, future):
         result = future.result().result
         if result.resultant == 1:
-            self.linear_conveyor_spinning = 0
+            self.linear_conveyor_ready = 1
         self.get_logger().info('Result: {0}'.format(result.resultant))
     #----------Action Linear Spin Client Functions End-------
 
 def main(args=None):
     rclpy.init(args=args)
     minimal_publisher = MinimalPublisher()
-    rclpy.spin(minimal_publisher)
+    while(1):
+        rclpy.spin_once(minimal_publisher)
+
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
