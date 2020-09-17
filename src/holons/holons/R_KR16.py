@@ -124,37 +124,30 @@ class MinimalPublisher(Node):
             result.completion = True
             return result #this return results totally zucks it
         elif nodea == 1 and nodeb == 2: 
-            self.get_logger().info('Transporting to Node 2...')
+             self.get_logger().info('Transporting to Node 2...')
             feedback_msg = Transport.Feedback()
             feedback_msg.percent = 0
-            kuka_state = 0
             self.conveyor_spinning = 1
-            self.send_spin_request(0, product_id)
+            self.send_spin_request(0, product_id, 0)
+            self.spin_thread = Thread(target=self.new_thread_check)
+            self.spin_thread.start()
             while self.conveyor_spinning != 0:
                 time.sleep(0.5)
-                rclpy.spin_once(self)
-            while kuka_state != 4:
-                rclpy.spin_once(self)
-                if kuka_state == 0: 
-                    if self.linear_conveyor_ready == 0:
-                        kuka_state = 1
-                elif kuka_state == 1:
-                    GPIO.output(self.pin_start_12, 1) # Start arm movement for 02
-                    kuka_state = 2
-                elif kuka_state == 2:
-                    if GPIO.input(self.pin_progress):
-                        kuka_state = 3
-                        feedback_msg.percent = 50
-                        goal_handle.publish_feedback(feedback_msg)
-                elif kuka_state == 3:
-                    if GPIO.input(self.pin_finished):
-                        feedback_msg.percent = 99
-                        goal_handle.publish_feedback(feedback_msg)
-                        kuka_state = 4 
+                print("I am waiting for the conveyor to stop spinning")
+            self.spin_thread.join()
+            for i in range(1, 100):
+                feedback_msg.percent = i
+                goal_handle.publish_feedback(feedback_msg)
                 time.sleep(.05)
+                print("I am moving the part")
             goal_handle.succeed()
-            result.completion = True
+            result.result = True
             return result
+            print("I returned the result")
+        else:
+            goal_handle.abort()
+            result.completion = False
+            return result 
         else:
             
             goal_handle.abort()
@@ -184,6 +177,11 @@ class MinimalPublisher(Node):
         if feedback.progress == 777:
             print("I got to here")
             self.conveyor_spinning = 0
+
+    def new_thread_check(self):
+        while self.conveyor_spinning != 0:
+            rclpy.spin_once(self)
+    
     #----------Action Spin Client Functions End----------------
     #----------Action Linear Spin Client Functions Start-------
     def send_SpinLinear_request(self, pos):
