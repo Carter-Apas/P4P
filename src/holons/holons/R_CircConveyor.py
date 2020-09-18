@@ -42,6 +42,7 @@ class MinimalPublisher(Node):
         self.trays = [1,0,0,0,0,1]
         self.spinning = 0 
         self.conveyor_GPIO_pin = 19
+        self.conveyor_ir_feedback_pin = 21
 
 
     def timer_callback(self):
@@ -93,9 +94,10 @@ class MinimalPublisher(Node):
                 GPIO.setmode(GPIO.BOARD)
                 GPIO.setwarnings(False)
                 GPIO.setup(self.conveyor_GPIO_pin, GPIO.OUT)
+                GPIO.setup(self.conveyor_ir_feedback_pin, GPIO.IN)
                 GPIO.output(self.conveyor_GPIO_pin, GPIO.HIGH)
-                for k in range(1,100):
-                    feedback_msg.progress = k
+                while GPIO.input(self.conveyor_ir_feedback_pin) == False:
+                    feedback_msg.progress = 55
                     self.get_logger().info('Feedback: Spinning')
                     goal_handle.publish_feedback(feedback_msg)
                     time.sleep(0.09)
