@@ -39,6 +39,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ResourceMove.srv"
   "action/Transport.action"
   "action/Spin.action"
+  "action/SpinLinear.action"
  )
 
 ament_package()
