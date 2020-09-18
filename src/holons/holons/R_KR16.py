@@ -158,11 +158,12 @@ class MinimalPublisher(Node):
     #----------Action Server Functions End------------------------
     #----------Action Spin Client Functions Start-----------------
 
-    def send_spin_request(self, entry, product_id):
+    def send_spin_request(self, entry, product_id, tray_id):
 
         goal_msg = Spin.Goal()
         goal_msg.entry = entry
         goal_msg.product_id = product_id
+        goal_msg.tray_id = tray_id
 
         self.get_logger().info('Sending Spin Request')
         self._action_client.wait_for_server()
