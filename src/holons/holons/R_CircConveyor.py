@@ -39,10 +39,28 @@ class MinimalPublisher(Node):
         self.graph = AdjacencyList()
         self.graph.node = 2
         self.graph.adjacent = [1,3]
-        self.trays = [1,0,0,0,0,1]
+        self.trays = [0,0,0]
         self.spinning = 0 
-        self.conveyor_GPIO_pin = 19
-        self.conveyor_ir_feedback_pin = 21
+        self.conveyor_GPIO_pin = 15
+        self.conveyor_IR_pins = [38,40]
+        self.pneumatic_stop_pins = [8,7]
+        self.pneumatic_pin = 0
+        
+        self.new_ir_readings = [0,0]
+        self.old_ir_readings = [0,0]
+        self.kuka_tray_counter = [-1,-1]
+        self.debounce_counter = [0,0]
+        self.tray_requested = 0
+        self.found = 0 
+        self.correct_edge_found = 0
+
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setwarnings(False)
+        GPIO.setup(self.conveyor_GPIO_pin, GPIO.OUT)
+        GPIO.setup(self.conveyor_IR_pins[0], GPIO.IN)
+        GPIO.setup(self.conveyor_IR_pins[1], GPIO.IN)
+        GPIO.setup(self.pneumatic_stop_pins[0], GPIO.OUT)
+        GPIO.setup(self.pneumatic_stop_pins[1], GPIO.OUT)
 
 
     def timer_callback(self):
@@ -59,55 +77,103 @@ class MinimalPublisher(Node):
 
 
     def spin_execute_callback(self, goal_handle):
-
+        
+        # import the received data
         product_id = goal_handle.request.product_id
-        result = Spin.Result()
-        print('Received request to spin')
         entry_spot = goal_handle.request.entry
         tray_id = goal_handle.request.tray_id
-        print(entry_spot)
+        # create a result 
+        result = Spin.Result()
+        # communicate that request is received
+        print('Received request to spin')
+        
+        # determine which IR sensor is going to be used
+        if entry_spot == 0:
+            self.pneumatic_pin = self.pneumatic_stop_pins[0]
+            print("working from KR16")
+        else:
+            self.pneumatic_pin = self.pneumatic_stop_pins[1]
+            print("working from KR10")
+
+        # wait for conveyor to finish its job if it is busy
         while self.spinning == 1:
             time.sleep(0.5)
-            print("Im in the loop")
-        new_tray = entry_spot
-        num_of_spins = 0
-        while self.trays[new_tray] != tray_id:
-            if new_tray == 0:
-                new_tray = (len(self.trays)-1)
-            else:
-                new_tray = new_tray - 1
-            num_of_spins = num_of_spins + 1
-        feedback_msg = Spin.Feedback()
-        feedback_msg.progress = 0
-        self.spinning == 1
-        if num_of_spins >= 1:
-            print("I need to spin")
-            for i in range(1,(num_of_spins)+1):
-                print("completing one spin")
-                old_right = self.trays[len(self.trays)-1]
-                for j in range(len(self.trays)-1, 0, -1):
-                    print(j)
-                    self.trays[j] = self.trays[j-1]
-                    print(self.trays)
-                self.trays[0]= old_right
+            print("Waiting for conveyor to stop spinning")
 
-                GPIO.setmode(GPIO.BOARD)
-                GPIO.setwarnings(False)
-                GPIO.setup(self.conveyor_GPIO_pin, GPIO.OUT)
-                GPIO.setup(self.conveyor_ir_feedback_pin, GPIO.IN)
-                GPIO.output(self.conveyor_GPIO_pin, GPIO.HIGH)
-                while GPIO.input(self.conveyor_ir_feedback_pin) == False:
-                    feedback_msg.progress = 55
-                    self.get_logger().info('Feedback: Spinning')
-                    goal_handle.publish_feedback(feedback_msg)
-                    time.sleep(0.09)
-                GPIO.output(self.conveyor_GPIO_pin, GPIO.LOW)
-                GPIO.cleanup
-                print(self.trays)
-        self.trays[entry_spot] = product_id
+        for i in range(0,len(self.trays)):
+            if self.trays[i] == tray_id and self.found == 0:
+                self.found = 1
+                self.tray_requested = i
+                print(self.tray_requested)
+            #else:
+            # return that there is no tray
+        self.found = 0
+
+        GPIO.output(self.conveyor_GPIO_pin, GPIO.HIGH)
+
+        while self.correct_edge_found != 1:
+            
+            for i in range(0,len(self.kuka_tray_counter)):
+                if GPIO.input(self.conveyor_IR_pins[i]):
+                    self.new_ir_readings[i] = 1
+                    self.debounce_counter[i] = 0
+                    print("Im on the sensor at")
+                    print(i)
+                else: 
+                    self.debounce_counter[i] = self.debounce_counter[i] + 1
+                    if self.debounce_counter[i] > 5:
+                        self.new_ir_readings[i] = 0 
+                        print("Im off the sensor at") 
+                        print(i)
+
+            print(self.new_ir_readings)
+            print(self.old_ir_readings)
+            for i in range(0,len(self.kuka_tray_counter)):
+                print("I am in the edge loop")
+                print(i)
+                print(self.new_ir_readings[i])
+                print(self.old_ir_readings[i])
+                
+                if self.new_ir_readings[i]  and not self.old_ir_readings[i]:
+                    print("I am seeing an edge at")
+                    print(i)
+                    if self.kuka_tray_counter[i] == 2:
+                        self.kuka_tray_counter[i] = 0
+                    else:
+                        self.kuka_tray_counter[i] = self.kuka_tray_counter[i] + 1
+                    
+                    if self.kuka_tray_counter[i] == self.tray_requested and i == entry_spot:
+                        print("I have found my tray")
+                        self.correct_edge_found = 1
+                        GPIO.output(self.conveyor_GPIO_pin, GPIO.LOW)
+                        GPIO.output(self.pneumatic_pin, GPIO.HIGH)
+
+            print(self.new_ir_readings)
+            print(self.old_ir_readings)
+            print(self.kuka_tray_counter)  
+               
+
+            self.old_ir_readings[0] = self.new_ir_readings[0]
+            self.old_ir_readings[1] = self.new_ir_readings[1]
+
+            time.sleep(0.1)
+        
+        self.correct_edge_found = 0 
+        time.sleep(5)
+
+        for i in range(0,len(self.kuka_tray_counter)):
+            if GPIO.input(self.conveyor_IR_pins[i]):
+                self.old_ir_readings[i] = 1
+
+        GPIO.output(self.pneumatic_pin, GPIO.LOW)
+        print(self.tray_requested)
+        self.trays[self.tray_requested] = product_id
         print(self.trays)
-        #feedback_msg.progress = 'Completing Spin %d of %d' % (i, num_of_spins)  
-        feedback_msg.progress = 777
+        self.spinning = 0
+
+        feedback_msg = Spin.Feedback()
+        feedback_msg.progress = 99
+
         self.spinning == 0 
         self.get_logger().info('Feedback: Finished Spinning')
         goal_handle.publish_feedback(feedback_msg)
@@ -128,6 +194,7 @@ def main(args=None):
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
     minimal_publisher.destroy_node()
+    print("cleaning pins")
     rclpy.shutdown()
 
 

@@ -14,6 +14,11 @@
 
 import rclpy
 import time
+import sys
+import threading
+
+from threading import Thread 
+
 import RPi.GPIO as GPIO
 from rclpy.node import Node
 from rclpy.action import ActionServer
@@ -84,12 +89,12 @@ class MinimalPublisher(Node):
         product_id = goal_handle.request.product_id
         GPIO.output(self.pin_start_01, GPIO.LOW)    
         GPIO.output(self.pin_start_12, GPIO.LOW)
+        kuka_state = 0
 
         if nodea == 0 and nodeb == 1: 
             self.get_logger().info('Transporting to Node 1...')
             feedback_msg = Transport.Feedback()
             feedback_msg.percent = 0
-            kuka_state = 0
             
             #need to add a timout counter returning a failure should there be no input.
             self.send_SpinLinear_request(1)
@@ -116,6 +121,7 @@ class MinimalPublisher(Node):
                         print("questiion")
                         GPIO.output(self.pin_start_01, GPIO.LOW)
                         kuka_state = 4
+
             feedback_msg.percent = 99
             goal_handle.publish_feedback(feedback_msg)
             goal_handle.succeed()
@@ -124,7 +130,8 @@ class MinimalPublisher(Node):
             result.completion = True
             return result #this return results totally zucks it
         elif nodea == 1 and nodeb == 2: 
-             self.get_logger().info('Transporting to Node 2...')
+
+            self.get_logger().info('Transporting to Node 2...')
             feedback_msg = Transport.Feedback()
             feedback_msg.percent = 0
             self.conveyor_spinning = 1
@@ -135,11 +142,27 @@ class MinimalPublisher(Node):
                 time.sleep(0.5)
                 print("I am waiting for the conveyor to stop spinning")
             self.spin_thread.join()
-            for i in range(1, 100):
-                feedback_msg.percent = i
-                goal_handle.publish_feedback(feedback_msg)
-                time.sleep(.05)
-                print("I am moving the part")
+
+            while kuka_state != 3:
+                rclpy.spin_once(self,executor=None, timeout_sec=0) #either get rid of this spin or somehow fix return
+                if kuka_state == 0:
+                    print("sure")
+                    GPIO.output(self.pin_start_12, 1) # Start arm movement for 01
+                    kuka_state = 1
+                elif kuka_state == 1:
+                    if GPIO.input(self.pin_progress):
+                        print("nani")
+                        kuka_state = 2
+                        feedback_msg.percent = 50
+                        goal_handle.publish_feedback(feedback_msg)
+                elif kuka_state == 2:
+                    if GPIO.input(self.pin_finished):
+                        print("questiion")
+                        GPIO.output(self.pin_start_12, GPIO.LOW)
+                        kuka_state = 3
+            
+            feedback_msg.percent = 99
+            goal_handle.publish_feedback(feedback_msg)
             goal_handle.succeed()
             result.result = True
             return result
@@ -148,11 +171,7 @@ class MinimalPublisher(Node):
             goal_handle.abort()
             result.completion = False
             return result 
-        else:
-            
-            goal_handle.abort()
-            result.completion = False
-            return result 
+        
 
     
     #----------Action Server Functions End------------------------
@@ -167,23 +186,43 @@ class MinimalPublisher(Node):
 
         self.get_logger().info('Sending Spin Request')
         self._action_client.wait_for_server()
-
         self._send_goal_future = self._action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
+        self._send_goal_future.add_done_callback(self.circular_goal_response_callback)
 
     def feedback_callback(self, feedback_msg):
 
         feedback = feedback_msg.feedback
         print(feedback)
         self.get_logger().info('Received feedback: {0}'.format(feedback.progress))
-        if feedback.progress == 777:
-            print("I got to here")
-            self.conveyor_spinning = 0
+        # if feedback.progress == 777:
+        #     print("I got to here")
+        #     self.conveyor_spinning = 0
 
     def new_thread_check(self):
         while self.conveyor_spinning != 0:
             rclpy.spin_once(self)
+
+    def get_circular_spin_result_callback(self, future):
+        result = future.result().result
+        if result.completion == True:
+            self.conveyor_spinning = 0
+        self.get_logger().info('Result: {0}'.format(result.completion))
+
+
+    def circular_goal_response_callback(self, future):
+        goal_handle = future.result()
+
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected :(')
+            return
+
+        self.get_logger().info('Goal accepted :)')
+
+        self._get_result_future_circular_spin = goal_handle.get_result_async()
+        self._get_result_future_circular_spin.add_done_callback(self.get_circular_spin_result_callback)
     
     #----------Action Spin Client Functions End----------------
+
     #----------Action Linear Spin Client Functions Start-------
     def send_SpinLinear_request(self, pos):
         goal_msg = SpinLinear.Goal()
