@@ -1,7 +1,0 @@
-int32 entry
-int32 product_id
-int32 tray_id
----
-bool completion
----
-int32 progress

@@ -22,7 +22,7 @@ from holon_msgs.msg import AdjacencyList
 import RPi.GPIO as GPIO
 
 from holon_msgs.action import Transport 
-from holon_msgs.action import Spin 
+from holon_msgs.action import Storage 
 
 
 
@@ -34,7 +34,7 @@ class MinimalPublisher(Node):
         timer_period = 1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
-        self._action_server = ActionServer(self, Spin ,'spin_request', self.spin_execute_callback)
+        self._action_server = ActionServer(self, Storage ,'storage_request_2', self.spin_execute_callback)
 
         self.graph = AdjacencyList()
         self.graph.node = 2
@@ -83,7 +83,7 @@ class MinimalPublisher(Node):
         entry_spot = goal_handle.request.entry
         tray_id = goal_handle.request.tray_id
         # create a result 
-        result = Spin.Result()
+        result = Storage.Result()
         # communicate that request is received
         print('Received request to spin')
         
@@ -171,7 +171,7 @@ class MinimalPublisher(Node):
         print(self.trays)
         self.spinning = 0
 
-        feedback_msg = Spin.Feedback()
+        feedback_msg = Storage.Feedback()
         feedback_msg.progress = 99
 
         self.spinning == 0 
@@ -194,7 +194,7 @@ def main(args=None):
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
     minimal_publisher.destroy_node()
-    print("cleaning pins")
+
     rclpy.shutdown()
 
 

@@ -26,8 +26,8 @@ from rclpy.action import ActionClient
 from std_msgs.msg import String
 from holon_msgs.msg import AdjacencyList
 from holon_msgs.action import Transport 
-from holon_msgs.action import Spin
-from holon_msgs.action import SpinLinear
+from holon_msgs.action import Storage
+
 
 
 class MinimalPublisher(Node):
@@ -40,8 +40,8 @@ class MinimalPublisher(Node):
 
         #Action server declaration
         self._action_server = ActionServer(self,Transport,'transport_request',self.transport_callback,goal_callback=self.goal_parse_msg)
-        self._action_client = ActionClient(self, Spin, 'spin_request')
-        self._action_SpinLinear_client = ActionClient(self, SpinLinear, 'SpinLinear_Request')
+        self.action_storage_client_2 = ActionClient(self, Storage, 'storage_request_2')
+        self.action_storage_client_0 = ActionClient(self, Storage, 'storage_request_0')
 
         self.graph = AdjacencyList()
         self.graph.node = 1
@@ -82,8 +82,6 @@ class MinimalPublisher(Node):
             return rclpy.action.GoalResponse(1)
 
     def transport_callback(self, goal_handle):
-
-        
         nodea = goal_handle.request.a
         nodeb = goal_handle.request.b
         product_id = goal_handle.request.product_id
@@ -97,28 +95,23 @@ class MinimalPublisher(Node):
             feedback_msg.percent = 0
             
             #need to add a timout counter returning a failure should there be no input.
-            self.send_SpinLinear_request(1)
+            self.send_storage_request_0(1,0,0) #Only entry matters for this function
             self.linear_conveyor_ready = 0
-            print("where am i now")
             while kuka_state != 4:
                 rclpy.spin_once(self,executor=None, timeout_sec=0) #either get rid of this spin or somehow fix return
                 if kuka_state == 0: 
-                    print("nani da cook")
                     if self.linear_conveyor_ready == 1:
                         kuka_state = 1
                 elif kuka_state == 1:
-                    print("sure")
                     GPIO.output(self.pin_start_01, 1) # Start arm movement for 01
                     kuka_state = 2
-                elif kuka_state == 2:
+                elif kuka_state == 2: # Check for progress before moving on
                     if GPIO.input(self.pin_progress):
-                        print("nani")
                         kuka_state = 3
                         feedback_msg.percent = 50
                         goal_handle.publish_feedback(feedback_msg)
-                elif kuka_state == 3:
+                elif kuka_state == 3: # Check for movement finishing
                     if GPIO.input(self.pin_finished):
-                        print("questiion")
                         GPIO.output(self.pin_start_01, GPIO.LOW)
                         kuka_state = 4
 
@@ -135,7 +128,7 @@ class MinimalPublisher(Node):
             feedback_msg = Transport.Feedback()
             feedback_msg.percent = 0
             self.conveyor_spinning = 1
-            self.send_spin_request(0, product_id, 0)
+            self.send_storage_request_2(0, product_id, 0)
             self.spin_thread = Thread(target=self.new_thread_check)
             self.spin_thread.start()
             while self.conveyor_spinning != 0:
@@ -175,71 +168,67 @@ class MinimalPublisher(Node):
 
     
     #----------Action Server Functions End------------------------
-    #----------Action Spin Client Functions Start-----------------
+    #----------Action Storage Client Node 2 Functions Start-----------------
 
-    def send_spin_request(self, entry, product_id, tray_id):
+    def send_storage_request_2(self, entry, product_id, tray_id):
 
-        goal_msg = Spin.Goal()
+        goal_msg = Storage.Goal()
         goal_msg.entry = entry
         goal_msg.product_id = product_id
         goal_msg.tray_id = tray_id
 
-        self.get_logger().info('Sending Spin Request')
-        self._action_client.wait_for_server()
-        self._send_goal_future = self._action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
-        self._send_goal_future.add_done_callback(self.circular_goal_response_callback)
+        self.get_logger().info('Sending Storage Request to Node 2')
+        self.action_storage_client_2.wait_for_server()
+        self.send_goal_future_storage_2 = self.action_storage_client_2.send_goal_async(goal_msg, feedback_callback=self.feedback_callback_storage_2)
+        self.send_goal_future_storage_2.add_done_callback(self.goal_response_callback_storage_2)
 
-    def feedback_callback(self, feedback_msg):
+    def feedback_callback_storage_2(self, feedback_msg):
 
         feedback = feedback_msg.feedback
         print(feedback)
         self.get_logger().info('Received feedback: {0}'.format(feedback.progress))
-        # if feedback.progress == 777:
-        #     print("I got to here")
-        #     self.conveyor_spinning = 0
 
     def new_thread_check(self):
         while self.conveyor_spinning != 0:
             rclpy.spin_once(self)
 
-    def get_circular_spin_result_callback(self, future):
+    def goal_response_callback_storage_2(self, future):
+        goal_handle = future.result()
+
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected :(')
+            return
+
+        self.get_logger().info('Goal accepted :)')
+
+        self.get_result_future_storage_2 = goal_handle.get_result_async()
+        self.get_result_future_storage_2.add_done_callback(self.get_request_result_callback_storage_2)
+
+    def get_request_result_callback_storage_2(self, future):
         result = future.result().result
         if result.completion == True:
             self.conveyor_spinning = 0
         self.get_logger().info('Result: {0}'.format(result.completion))
 
-
-    def circular_goal_response_callback(self, future):
-        goal_handle = future.result()
-
-        if not goal_handle.accepted:
-            self.get_logger().info('Goal rejected :(')
-            return
-
-        self.get_logger().info('Goal accepted :)')
-
-        self._get_result_future_circular_spin = goal_handle.get_result_async()
-        self._get_result_future_circular_spin.add_done_callback(self.get_circular_spin_result_callback)
     
-    #----------Action Spin Client Functions End----------------
+    #----------Action Storage Client Node 2 Functions End----------------
 
-    #----------Action Linear Spin Client Functions Start-------
-    def send_SpinLinear_request(self, pos):
-        goal_msg = SpinLinear.Goal()
-        goal_msg.pos = 1
+    #----------Action Storage Client Node 0 Client Functions Start-------
+    def send_storage_request_0(self, entry, product_id, tray_id):
+        goal_msg = Storage.Goal()
+        goal_msg.entry = 1
 
         self.get_logger().info('Sending Linear Spin Request')
-        self._action_SpinLinear_client.wait_for_server()
-        self._send_goal_future_SpinLinear = self._action_SpinLinear_client.send_goal_async(goal_msg, feedback_callback=self.SpinLinear_feedback_callback)
+        self.action_storage_client_0.wait_for_server()
+        self.send_goal_future_storage_0 = self.action_storage_client_0.send_goal_async(goal_msg, feedback_callback=self.feedback_callback_storage_0)
+        self.send_goal_future_storage_0.add_done_callback(self.goal_response_callback_storage_0)
 
-        self._send_goal_future_SpinLinear.add_done_callback(self.SpinLinear_goal_response_callback)
-
-    def SpinLinear_feedback_callback(self, feedback_msg):
+    def feedback_callback_storage_0(self, feedback_msg):
         print("nani")
         feedback = feedback_msg.feedback
         self.get_logger().info('Received feedback: {0}'.format(feedback.percent))
     
-    def SpinLinear_goal_response_callback(self, future):
+    def goal_response_callback_storage_0(self, future):
         goal_handle = future.result()
 
         if not goal_handle.accepted:
@@ -248,15 +237,15 @@ class MinimalPublisher(Node):
 
         self.get_logger().info('Goal accepted :)')
 
-        self._get_result_future_SpinLinear = goal_handle.get_result_async()
-        self._get_result_future_SpinLinear.add_done_callback(self.get_result_callback)
+        self.get_result_future_storage_0 = goal_handle.get_result_async()
+        self.get_result_future_storage_0.add_done_callback(self.get_result_callback_storage_0)
 
-    def get_result_callback(self, future):
+    def get_result_callback_storage_0(self, future):
         result = future.result().result
-        if result.resultant == 1:
+        if result.completion == 1:
             self.linear_conveyor_ready = 1
-        self.get_logger().info('Result: {0}'.format(result.resultant))
-    #----------Action Linear Spin Client Functions End-------
+        self.get_logger().info('Result: {0}'.format(result.completion))
+    #----------Action Storage Client Node 0 Functions End-------
 
 def main(args=None):
     rclpy.init(args=args)

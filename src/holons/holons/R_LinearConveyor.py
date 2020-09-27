@@ -19,7 +19,7 @@ from rclpy.action import ActionServer
 from rclpy.node import Node
 from std_msgs.msg import String
 from holon_msgs.msg import AdjacencyList 
-from holon_msgs.action import SpinLinear
+from holon_msgs.action import Storage
 
 
 class MinimalPublisher(Node):
@@ -27,6 +27,7 @@ class MinimalPublisher(Node):
     def __init__(self):
         super().__init__('Linear_Conveyor')
         self.publisher_ = self.create_publisher(AdjacencyList, 'graph_node_network', 10)
+        self._action_server = ActionServer(self,Storage,'storage_request_0',self.storage_callback)
         timer_period = 1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -46,7 +47,7 @@ class MinimalPublisher(Node):
 
         self.pos = 0
         self.length_of_movement = 1.2
-        self._action_server = ActionServer(self,SpinLinear,'SpinLinear_Request',self.SpinLinear_callback)
+        
 
         print("Ensure the conveyor is wired to the controller")
         time.sleep(1)
@@ -62,33 +63,46 @@ class MinimalPublisher(Node):
         self.publisher_.publish(self.graph)
         #self.get_logger().info('Publishing: "%x" and "%x"' % (self.graph.node self.graph.adjacent))
 
-        #-------------Action Server Functions Start---------------------------
-    def SpinLinear_callback(self, goal_handle):
+    #-------------Action Server Functions Start---------------------------
+
+    def goal_parse_msg(self,goal_request):
+        self.get_logger().info('Storage Request at position %d, Placing Product ID: %d, Retrieving Tray ID: %d' % (goal_request.entry,goal_request.product_id,goal_request.tray_id))
+        if (goal_request.entry <= 1):
+            self.get_logger().info('Accepting Goal')
+            return rclpy.action.GoalResponse(2)
+        else:
+            self.get_logger().info('Declined Goal Invalid Entry ID')
+            return rclpy.action.GoalResponse(1)
+
+    #Function does not handle product id and tray id calls as objects are instantiated on this conveyor
+    #ie, no node calls this function and places things onto it, it is simply a pickup spot.
+    #functionality should be added if another node is attached that can place things onto it.
+    def storage_callback(self, goal_handle):
             self.get_logger().info('Executing goal...')
             goal_handle.succeed()
-            feedback_msg = SpinLinear.Feedback()
+            feedback_msg = Storage.Feedback()
 
-            if goal_handle.request.pos == 0 and self.pos != 0:
+            if goal_handle.request.entry == 0 and self.pos != 0:
                 for i in range(10):
                     GPIO.output(self.pin_MOVEDOWN, GPIO.HIGH)
-                    feedback_msg.percent = i*10
+                    feedback_msg.progress = i*10
                     goal_handle.publish_feedback(feedback_msg)
                     time.sleep(self.length_of_movement) # Change this variable depending on how long you need to move the conveyor
                 GPIO.output(self.pin_MOVEDOWN, GPIO.LOW)
                 self.pos = 0
-            if (goal_handle.request.pos) == 1 and (self.pos != 1):
+            if (goal_handle.request.entry) == 1 and (self.pos != 1):
                 for i in range(10):
                     GPIO.output(self.pin_MOVEUP, GPIO.HIGH)
-                    feedback_msg.percent = i*10
+                    feedback_msg.progress = i*10
                     goal_handle.publish_feedback(feedback_msg)
                     time.sleep(self.length_of_movement) # Change this variable depending on how long you need to move the conveyor
                 GPIO.output(self.pin_MOVEUP, GPIO.LOW)
                 self.pos = 1
-            result = SpinLinear.Result()
-            result.resultant = self.pos
+            result = Storage.Result()
+            result.completion = self.pos
             return result
 
-        #-------------Action Server Function End-----------------------------
+    #-------------Action Server Function End-----------------------------
 
 
 def main(args=None):
