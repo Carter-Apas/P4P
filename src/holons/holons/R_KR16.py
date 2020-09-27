@@ -89,6 +89,8 @@ class MinimalPublisher(Node):
         GPIO.output(self.pin_start_12, GPIO.LOW)
         kuka_state = 0
 
+        result = Transport.Result()
+
         if nodea == 0 and nodeb == 1: 
             self.get_logger().info('Transporting to Node 1...')
             feedback_msg = Transport.Feedback()
@@ -119,7 +121,7 @@ class MinimalPublisher(Node):
             goal_handle.publish_feedback(feedback_msg)
             goal_handle.succeed()
 
-            result = Transport.Result()
+            
             result.completion = True
             return result #this return results totally zucks it
         elif nodea == 1 and nodeb == 2: 
@@ -157,7 +159,7 @@ class MinimalPublisher(Node):
             feedback_msg.percent = 99
             goal_handle.publish_feedback(feedback_msg)
             goal_handle.succeed()
-            result.result = True
+            result.completion = True
             return result
             print("I returned the result")
         else:
@@ -226,7 +228,7 @@ class MinimalPublisher(Node):
     def feedback_callback_storage_0(self, feedback_msg):
         print("nani")
         feedback = feedback_msg.feedback
-        self.get_logger().info('Received feedback: {0}'.format(feedback.percent))
+        self.get_logger().info('Received feedback: {0}'.format(feedback.progress))
     
     def goal_response_callback_storage_0(self, future):
         goal_handle = future.result()

@@ -27,7 +27,7 @@ class MinimalPublisher(Node):
     def __init__(self):
         super().__init__('Linear_Conveyor')
         self.publisher_ = self.create_publisher(AdjacencyList, 'graph_node_network', 10)
-        self._action_server = ActionServer(self,Storage,'storage_request_0',self.storage_callback)
+        self._action_server = ActionServer(self,Storage,'storage_request_0',self.storage_callback,goal_callback=self.goal_parse_msg)
         timer_period = 1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -99,7 +99,7 @@ class MinimalPublisher(Node):
                 GPIO.output(self.pin_MOVEUP, GPIO.LOW)
                 self.pos = 1
             result = Storage.Result()
-            result.completion = self.pos
+            result.completion = True
             return result
 
     #-------------Action Server Function End-----------------------------
