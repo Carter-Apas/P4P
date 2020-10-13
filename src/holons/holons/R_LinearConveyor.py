@@ -37,6 +37,7 @@ class MinimalPublisher(Node):
 
         #--------GPIO pin setup start-------------
         GPIO.setmode(GPIO.BOARD)
+        GPIO.setwarnings(False)
         self.pin_MOVEUP = 11
         self.pin_MOVEDOWN = 13
         GPIO.setup(self.pin_MOVEUP, GPIO.OUT)

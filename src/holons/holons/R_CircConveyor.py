@@ -54,13 +54,17 @@ class MinimalPublisher(Node):
         self.found = 0 
         self.correct_edge_found = 0
 
+        print("init.....")
+        #--------GPIO pin setup start-------------
         GPIO.setmode(GPIO.BOARD)
         GPIO.setwarnings(False)
         GPIO.setup(self.conveyor_GPIO_pin, GPIO.OUT)
-        GPIO.setup(self.conveyor_IR_pins[0], GPIO.IN)
-        GPIO.setup(self.conveyor_IR_pins[1], GPIO.IN)
+        GPIO.setup(self.conveyor_IR_pins[0], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(self.conveyor_IR_pins[1], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(self.pneumatic_stop_pins[0], GPIO.OUT)
         GPIO.setup(self.pneumatic_stop_pins[1], GPIO.OUT)
+        #--------GPIO pin setup end-------------
+        print("ready")
 
 
     def timer_callback(self):

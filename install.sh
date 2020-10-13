@@ -12,4 +12,6 @@ sudo apt install ros-foxy-ros-base
 sudo apt install -y python3-pip
 pip3 install -U argcomplete
 pip3 install RPi.GPIO
-sudo apt install g++ vim 
+pip3 install -U pytest
+pip3 install -U colcon-common-extensions
+sudo apt install g++ vim ranger

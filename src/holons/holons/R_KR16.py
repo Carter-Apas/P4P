@@ -52,14 +52,15 @@ class MinimalPublisher(Node):
         print("init.....")
         #--------GPIO pin setup start-------------
         GPIO.setmode(GPIO.BOARD)
+        GPIO.setwarnings(False)
         self.pin_start_01 = 36
         self.pin_start_12 = 37
         self.pin_progress = 31
         self.pin_finished = 33
         GPIO.setup(self.pin_start_01, GPIO.OUT)
         GPIO.setup(self.pin_start_12, GPIO.OUT)
-        GPIO.setup(self.pin_progress, GPIO.IN)
-        GPIO.setup(self.pin_finished, GPIO.IN)
+        GPIO.setup(self.pin_progress, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(self.pin_finished, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.output(self.pin_start_01, GPIO.LOW)    
         GPIO.output(self.pin_start_12, GPIO.LOW) 
         #--------GPIO pin setup end-------------

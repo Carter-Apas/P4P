@@ -48,22 +48,23 @@ class MinimalPublisher(Node):
         print("init.....")
         #--------GPIO pin setup start-------------
         GPIO.setmode(GPIO.BOARD)
+        GPIO.setwarnings(False)
         self.pin_start_23 = 33
         self.pin_start_32 = 35
         self.pin_start_34 = 36  
         self.pin_start_43 = 37
         self.pin_start_35 = 38
         self.pin_start_36 = 40
-        self.pin_progress = 31
-        self.pin_finished = 33
-        GPIO.setup(self.pin_start_23, GPIO.OUT)
-        GPIO.setup(self.pin_start_32, GPIO.OUT)
-        GPIO.setup(self.pin_start_34, GPIO.OUT)
-        GPIO.setup(self.pin_start_43, GPIO.OUT)
-        GPIO.setup(self.pin_start_35, GPIO.OUT)
-        GPIO.setup(self.pin_start_36, GPIO.OUT)
-        GPIO.setup(self.pin_progress, GPIO.IN)
-        GPIO.setup(self.pin_finished, GPIO.IN)
+        self.pin_progress = 16
+        self.pin_finished = 18
+        GPIO.setup(self.pin_start_23, GPIO.OUT) #Input 2 Kuka
+        GPIO.setup(self.pin_start_32, GPIO.OUT) #Input 3 Kuka
+        GPIO.setup(self.pin_start_34, GPIO.OUT) #Input 4 Kuka
+        GPIO.setup(self.pin_start_43, GPIO.OUT) #Input 5 Kuka
+        GPIO.setup(self.pin_start_35, GPIO.OUT) #Input 6 Kuka
+        GPIO.setup(self.pin_start_36, GPIO.OUT) #Input 7 Kuka
+        GPIO.setup(self.pin_progress, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(self.pin_finished, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.output(self.pin_start_23, GPIO.LOW)    
         GPIO.output(self.pin_start_32, GPIO.LOW)
         GPIO.output(self.pin_start_34, GPIO.LOW) 
@@ -236,6 +237,10 @@ class MinimalPublisher(Node):
             goal_handle.succeed()
 
             result.completion = True
+            return result 
+        else:
+            goal_handle.abort()
+            result.completion = False
             return result 
     
     #----------Action Server Functions End------------------------
