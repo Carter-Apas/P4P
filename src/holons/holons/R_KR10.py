@@ -37,6 +37,7 @@ class MinimalPublisher(Node):
         self.action_storage_client_2 = ActionClient(self, Storage, 'storage_request_2')
         self.action_storage_client_5 = ActionClient(self, Storage, 'storage_request_5')
         self.action_storage_client_6 = ActionClient(self, Storage, 'storage_request_6')
+        self.servcie_machine_client_4 = self.create_client(MachineRequest5, 'machine_request_5')
 
 
         self.graph = AdjacencyList()
@@ -87,6 +88,8 @@ class MinimalPublisher(Node):
         else:
             print("Declined Goal")
             return rclpy.action.GoalResponse(1)
+
+    
 
     def transport_callback(self, goal_handle):
 
@@ -163,24 +166,39 @@ class MinimalPublisher(Node):
 
         if nodea == 3 and nodeb == 4: 
             self.get_logger().info('Transporting to Node 4...')
-            feedback_msg = Transport.Feedback()
-            feedback_msg.percent = 0
-            goal_handle.publish_feedback(feedback_msg)
-            time.sleep(.05)
+            #open door
+            self.send_machine_5_service_request(1)
+            #open chuck
+            self.send_machine_5_service_request(3)
+            # insert code that moves part into position inside the chuck
+            # close chuck
+            self.send_machine_5_service_request(4)
+            # insert code that releases the part
+            # insert code that moves KR10 out of the machine
+            # close door
+            self.send_machine_5_service_request(2) 
+
             goal_handle.succeed()
             result.completion = True
             return result
+
         if nodea == 4 and nodeb == 3: 
-            self.get_logger().info('Transporting to Node 3...')
-            feedback_msg = Transport.Feedback()
-            feedback_msg.percent = 0
-            for i in range(1, 100):
-                feedback_msg.percent = i
-                goal_handle.publish_feedback(feedback_msg)
-                time.sleep(.05)
+            self.get_logger().info('Transporting to Node 4...')
+            #open door
+            self.send_machine_5_service_request(1)
+            # move KR10 into CNC and grab the part
+            #open chuck
+            self.send_machine_5_service_request(3)
+            # insert code that moves KR10 out of the machine
+            # close chuck
+            self.send_machine_5_service_request(4)
+            # close door
+            self.send_machine_5_service_request(2) 
+            
             goal_handle.succeed()
             result.completion = True
             return result
+
         if nodea == 3 and nodeb == 5: 
             self.get_logger().info('Transporting to Node 5...')
             feedback_msg = Transport.Feedback()
@@ -323,7 +341,7 @@ class MinimalPublisher(Node):
         self.get_logger().info('Result: {0}'.format(result.completion))
 
     #---------Action Client Storage 5 End-------------------------
-        #----------Action Client Storage 6 Start----------------------
+    #----------Action Client Storage 6 Start----------------------
     def send_storage_request_6(self, entry, product_id, tray_id):
 
         goal_msg = Storage.Goal()
@@ -359,6 +377,13 @@ class MinimalPublisher(Node):
         self.get_logger().info('Result: {0}'.format(result.completion))
 
     #---------Action Client Storage 6 End-------------------------
+    #--------Servcie Client Machine 5 Start-----------------------
+
+    def send_machine_5_service_request(self, command):
+        self.goal_msg = command
+        self.future = self.servcie_machine_client_4.call_async(self.goal_msg) 
+
+    #---------Service CLient Machine 5 End-------------------------
 
 def main(args=None):
     rclpy.init(args=args)

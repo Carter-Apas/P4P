@@ -12,10 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from holon_msgs.msg import AdjacencyList 
+import RPi.GPIO as GPIO
+
+from holon_msgs.srv import MachineRequest5
 
 
 class MinimalPublisher(Node):
@@ -26,13 +31,59 @@ class MinimalPublisher(Node):
         timer_period = 1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
+        self.service_request_5 = self.create_service(MachineRequest5, 'machine_request_5', self.machine_5_callback)
+
         self.graph = AdjacencyList()
         self.graph.node = 4
         self.graph.adjacent = [3]
+        self.Door_opening_pin = 35
+        self.Door_closing pin = 36
+        self.Interlock_shorting_pin = 37
+        self.Chuck_opening_pin = 38
+
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setwarnings(False)
+        GPIO.setup(self.Door_opening_pin, GPIO.OUT)
+        GPIO.setup(self.Door_closing_pin, GPIO.OUT)
+        GPIO.setup(self.Chuck_opening_pin, GPIO.OUT)
 
     def timer_callback(self):
         self.publisher_.publish(self.graph)
         #self.get_logger().info('Publishing: "%x" and "%x"' % (self.graph.node self.graph.adjacent))
+
+    def cnc_door_open_callback(self, request, response):
+        if request.command == 1:
+            response.reply = "Door is opening"
+            self.get_logger().info('Opening Door')
+            GPIO.output(self.Door_opening_pin, GPIO.HIGH)
+            time.sleep(5)
+            GPIO.output(self.Door_opening_pin, GPIO.LOW)
+            return response
+
+        elif request.command == 2:
+            response.reply = "Door is closing"
+            self.get_logger().info('Closing Door')
+            GPIO.output(self.Door_closing_pin, GPIO.HIGH)
+            time.sleep(5)
+            GPIO.output(self.Door_closing_pin, GPIO.LOW)
+            return response
+
+        elif request.command == 3:
+            response.reply = "Chuck is opening"
+            self.get_logger().info('Opening Chuck')
+            GPIO.output(self.Chuck_opening_pin, GPIO.HIGH)
+            return response
+
+        else request.command == 4:
+            response.reply = "Chuck is closing"
+            self.get_logger().info('Closing Chuck')
+            GPIO.output(self.Chuck_opening_pin, GPIO.LOW)
+            return response
+
+
+
+        
+
 
 
 def main(args=None):
