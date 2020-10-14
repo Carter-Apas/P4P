@@ -39,6 +39,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ResourceMove.srv"
   "action/Transport.action"
   "action/Storage.action"
+  "srv/MachineRequest5.srv"
  )
 
 ament_package()
