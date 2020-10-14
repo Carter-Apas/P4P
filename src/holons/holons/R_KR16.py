@@ -46,21 +46,21 @@ class MinimalPublisher(Node):
         self.graph = AdjacencyList()
         self.graph.node = 1
         self.graph.adjacent = [0,2]
-        self.conveyor_ready = 0
-        self.linear_conveyor_ready = 0
+        self.storage_0_ready = 0
+        self.storage_2_ready = 0
         
         print("init.....")
-
         #--------GPIO pin setup start-------------
         GPIO.setmode(GPIO.BOARD)
+        GPIO.setwarnings(False)
         self.pin_start_01 = 36
         self.pin_start_12 = 37
         self.pin_progress = 31
         self.pin_finished = 33
         GPIO.setup(self.pin_start_01, GPIO.OUT)
         GPIO.setup(self.pin_start_12, GPIO.OUT)
-        GPIO.setup(self.pin_progress, GPIO.IN)
-        GPIO.setup(self.pin_finished, GPIO.IN)
+        GPIO.setup(self.pin_progress, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(self.pin_finished, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.output(self.pin_start_01, GPIO.LOW)    
         GPIO.output(self.pin_start_12, GPIO.LOW) 
         #--------GPIO pin setup end-------------
@@ -98,11 +98,11 @@ class MinimalPublisher(Node):
             
             #need to add a timout counter returning a failure should there be no input.
             self.send_storage_request_0(1,0,0) #Only entry matters for this function
-            self.linear_conveyor_ready = 0
+            self.storage_0_ready = 0
             while kuka_state != 4:
                 rclpy.spin_once(self,executor=None, timeout_sec=0) #either get rid of this spin or somehow fix return
                 if kuka_state == 0: 
-                    if self.linear_conveyor_ready == 1:
+                    if self.storage_0_ready == 1:
                         kuka_state = 1
                 elif kuka_state == 1:
                     GPIO.output(self.pin_start_01, 1) # Start arm movement for 01
@@ -123,17 +123,17 @@ class MinimalPublisher(Node):
 
             
             result.completion = True
-            return result #this return results totally zucks it
+            return result 
         elif nodea == 1 and nodeb == 2: 
 
             self.get_logger().info('Transporting to Node 2...')
             feedback_msg = Transport.Feedback()
             feedback_msg.percent = 0
-            self.conveyor_spinning = 1
+            self.storage_2_ready = 0
             self.send_storage_request_2(0, product_id, 0)
             self.spin_thread = Thread(target=self.new_thread_check)
             self.spin_thread.start()
-            while self.conveyor_spinning != 0:
+            while self.storage_2_ready != 1:
                 time.sleep(0.5)
                 print("I am waiting for the conveyor to stop spinning")
             self.spin_thread.join()
@@ -191,7 +191,7 @@ class MinimalPublisher(Node):
         self.get_logger().info('Received feedback: {0}'.format(feedback.progress))
 
     def new_thread_check(self):
-        while self.conveyor_spinning != 0:
+        while self.storage_2_ready != 1:
             rclpy.spin_once(self)
 
     def goal_response_callback_storage_2(self, future):
@@ -209,7 +209,7 @@ class MinimalPublisher(Node):
     def get_request_result_callback_storage_2(self, future):
         result = future.result().result
         if result.completion == True:
-            self.conveyor_spinning = 0
+            self.storage_2_ready = 1
         self.get_logger().info('Result: {0}'.format(result.completion))
 
     
@@ -245,7 +245,7 @@ class MinimalPublisher(Node):
     def get_result_callback_storage_0(self, future):
         result = future.result().result
         if result.completion == 1:
-            self.linear_conveyor_ready = 1
+            self.storage_0_ready = 1
         self.get_logger().info('Result: {0}'.format(result.completion))
     #----------Action Storage Client Node 0 Functions End-------
 
